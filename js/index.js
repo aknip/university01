@@ -25,7 +25,7 @@ define('AppView', function (require, exports, module) {
     var StateModifier = require('famous/modifiers/StateModifier');
 
     // Constructor function for our class
-    function ListDemoAppsView2() {
+    function AppView() {
         // Applies View's constructor function to class
         View.apply(this, arguments);
 
@@ -43,11 +43,11 @@ define('AppView', function (require, exports, module) {
     }
 
     // Establishes prototype chain for class to inherit from View
-    ListDemoAppsView2.prototype = Object.create(View.prototype);
-    ListDemoAppsView2.prototype.constructor = ListDemoAppsView2;
+    AppView.prototype = Object.create(View.prototype);
+    AppView.prototype.constructor = AppView;
 
     // Default options for class
-    ListDemoAppsView2.DEFAULT_OPTIONS = {
+    AppView.DEFAULT_OPTIONS = {
         // initially empty
     };
 
@@ -80,5 +80,5 @@ define('AppView', function (require, exports, module) {
         this.backgroundView.add(backSurface);
     }
 
-    module.exports = ListDemoAppsView2;
+    module.exports = AppView;
 });
