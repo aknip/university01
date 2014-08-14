@@ -23,6 +23,8 @@ define('AppView', function (require, exports, module) {
     var Surface = require('famous/core/Surface');
     var Scrollview = require('famous/views/Scrollview');
     var StateModifier = require('famous/modifiers/StateModifier');
+    var Modifier         = require('famous/core/Modifier');
+    var Transform = require('famous/core/Transform');
     var Timer = require('famous/utilities/Timer');
 
     // Constructor function for our class
@@ -52,6 +54,7 @@ define('AppView', function (require, exports, module) {
           console.log('Actual width of background surface: ' + this.actualWidth);
           // calculate optimal grid
           this.calculateGrid();      
+          _createGrid.call(this);
         }.bind(this), 16);
 
     }
@@ -94,9 +97,6 @@ define('AppView', function (require, exports, module) {
       // Height of ScrollArea:
       this.options.scrollAreaSize[1] = this.numberOfcellsY * this.options.cellCalculatedSize[1] + this.options.cellOffset[1]*2 + ((this.numberOfcellsY-1) * this.options.cellGutter[1]);
       
-      // Set height of background ScrollArea to calculated size
-      this.backSurface.size[1]=this.options.scrollAreaSize[1];
-
       console.log("number of cells X: " + this.numberOfcellsX );
       console.log("number of cells Y: " + this.numberOfcellsY );
       console.log("calculated cell width: " + this.options.cellCalculatedSize[0] );
@@ -104,6 +104,64 @@ define('AppView', function (require, exports, module) {
       console.log("calculated height of scroll area " + this.options.scrollAreaSize[1] );
       
     };
+  
+  
+    // Creates manually computed grid based on option parameters
+    function _createGrid() {
+      // Set height of background ScrollArea to calculated size
+      this.backSurface.size[1]=this.options.scrollAreaSize[1];
+      this.backgroundView.options.size[1]=this.options.scrollAreaSize[1];
+      
+      // Init array of navModifiers, will be used later for animation
+      this.navModifiers = [];
+      var xCount = 0;
+      var yCount = 0;
+
+      for(var i = 0; i < this.options.cellCount; i++) {
+        // calculates x position and y postion during the loop
+        xCount = i % this.numberOfcellsX;
+        yCount = Math.floor(i*1.0 / this.numberOfcellsX);
+
+        // create cells: view and surface (view is used for future enhancements)
+        var navView = new View();
+        var contentSurface = new Surface({
+          content: "PANEL " + (i + 1),
+          size: [this.options.cellCalculatedSize[0], this.options.cellCalculatedSize[1]],
+          properties: {
+            backgroundColor: "hsl(" + (i * 360 / 8) + ", 60%, 50%)",
+            fontFamily: "Roboto",
+            fontWeight: 300,
+            color: "white",
+            textAlign: "center",
+            lineHeight: "100px"
+            }
+          });
+        navView._add(contentSurface);
+
+        // calculate position of cell, based on x/y/offset/gutter
+        var xOffset = this.options.cellOffset[0] + (this.options.cellCalculatedSize[0] + this.options.cellGutter[0]) * xCount;
+        var yOffset = this.options.cellOffset[1] + (this.options.cellCalculatedSize[1] + this.options.cellGutter[1]) * yCount;
+        // Transform.translate(..., ..., 1) transforms
+        // z-axis by 1 and ensures that the cells
+        // always stay on top of the background
+        var navModifier = new Modifier({
+          transform: Transform.translate(xOffset, yOffset, 1)
+          });
+        
+        // store default position in object (will be used later for animatino)
+        navModifier.cellDefaultPosition = [xOffset,yOffset];
+        
+        // IMPORTANT! Pipe surface events to Scrollview,
+        // otherwise you can't scroll!
+        contentSurface.pipe(this.scrollview);
+
+        // add each item to the view and store navModifier in array
+        this.navModifiers.push(navModifier);
+        this.backgroundView.add(navModifier).add(navView); 
+        }
+    
+    }
+  
 
     // Creates scrollView and background
     function _createScrollBackground() {
@@ -114,7 +172,9 @@ define('AppView', function (require, exports, module) {
         this.scrollview.sequenceFrom(this.scrollViews);
 
         // Create background view and backround surface
-        this.backgroundView = new View();
+        this.backgroundView = new View({
+            size: [this.options.scrollAreaSize[0], this.options.scrollAreaSize[1]]
+        });
         this.backSurface = new Surface({
             size: [this.options.scrollAreaSize[0], this.options.scrollAreaSize[1]],
             properties: {
