@@ -55,6 +55,8 @@ define('AppView', function (require, exports, module) {
           // calculate optimal grid
           this.calculateGrid();      
           _createGrid.call(this);
+          this.resetNavItems();
+          this.animateNavItems();
         }.bind(this), 16);
 
     }
@@ -75,7 +77,10 @@ define('AppView', function (require, exports, module) {
         cellGutter: [30,30],
         cellOffset: [50,40],
         // size of scroll background
-        scrollAreaSize: [undefined,undefined]
+        scrollAreaSize: [undefined,undefined],
+        // animation paramters
+        duration: 400,
+        staggerDelayMs: 20
     };
 
     // Define your helper functions and prototype methods here:
@@ -104,6 +109,42 @@ define('AppView', function (require, exports, module) {
       console.log("calculated height of scroll area " + this.options.scrollAreaSize[1] );
       
     };
+  
+    // reset position of all cells: move them outside the screen
+    // so that they can fly in
+    AppView.prototype.resetNavItems = function() {
+      // reset positions to the right 
+      // and fade all cells out (opacity)
+      for(var i = 0; i < this.navModifiers.length; i++) {
+        // xPos * 1.5
+        var initX = this.navModifiers[i].cellDefaultPosition[0] + this.options.cellMinSize[0] * 1.5;
+        // yPos * 2.0
+        var initY = this.navModifiers[i].cellDefaultPosition[1] + this.options.cellMinSize[1] * 2.0;
+        // store new values in navModifiers array
+        this.navModifiers[i].setOpacity(0.0);
+        this.navModifiers[i].setTransform(Transform.translate(initX, initY, 0));
+        }
+      };
+
+  
+    AppView.prototype.animateNavItems = function() {
+      for(var i = 0; i < this.navModifiers.length; i++) {
+        // use Timer.setTimeout (famous/utilities) 
+        // instead of window.setTimeout for higher accurancy    
+        Timer.setTimeout(function(i) {
+          var xOffset = this.navModifiers[i].cellDefaultPosition[0];
+          var yOffset = this.navModifiers[i].cellDefaultPosition[1];
+          // store new values in navModifiers array
+          this.navModifiers[i].setOpacity(1, { duration: this.options.duration, curve: 'easeOut' });
+          this.navModifiers[i].setTransform(
+            Transform.translate( xOffset, yOffset, 0),
+            { duration: this.options.duration, curve: 'easeOut' });
+          // setTimeout values are calculated for each cell, thus
+          // the staggering effect is created
+          }.bind(this, i), i*this.options.staggerDelayMs);
+        
+        }
+      };
   
   
     // Creates manually computed grid based on option parameters
