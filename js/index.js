@@ -9,6 +9,10 @@ define('main', function (require, exports, module) {
     var appView = new AppView();
     mainContext.add(appView);
   
+    Engine.on('resize', function() {
+        appView.resizeView();
+    });
+  
 });
 
 /**
@@ -44,14 +48,12 @@ define('AppView', function (require, exports, module) {
         this.mainNode.add(this.scrollview);
       
         // read actual width of background surface, this is needed to 
-        // calculate the optimal grid later
-        // the surface.getSize(true) method can not be used immediatelly,
-        // because it the surface is not rendered.
-        // A timeout after 16ms (1/60 sec) ensures, that it is rendered
+        // calculate the optimal grid later:
+        // the surface.getSize(true) method (used inside of .calculateGrid()) 
+        // can not be used immediatelly, because the surface is not already rendered.
+        // A timeout after 16ms (1/60 sec) ensures, that it is rendered 
+        // before the function is called.
         Timer.setTimeout( function () {
-          // store actual width property
-          this.actualWidth = this.backSurface.getSize(true)[0];
-          console.log('Actual width of background surface: ' + this.actualWidth);
           // calculate optimal grid
           this.calculateGrid();      
           _createGrid.call(this);
@@ -88,6 +90,9 @@ define('AppView', function (require, exports, module) {
     // Calculation of optimal cell sizes and row/column distribution
     // based on default option paramters above
     AppView.prototype.calculateGrid = function() {
+      // store actual width property
+      this.actualWidth = this.backSurface.getSize(true)[0];
+      console.log('Actual width of background surface: ' + this.actualWidth);
       // Calculate all sizes and dimensions for the grid
       // 1. Number of cells fitting into width
       this.numberOfcellsX  = Math.floor((this.actualWidth - this.options.cellOffset[0]*2 + this.options.cellGutter[0]) / (this.options.cellMinSize[0] +this.options.cellGutter[0]));
@@ -155,6 +160,7 @@ define('AppView', function (require, exports, module) {
       
       // Init array of navModifiers, will be used later for animation
       this.navModifiers = [];
+      this.navCells = [];
       var xCount = 0;
       var yCount = 0;
 
@@ -177,7 +183,7 @@ define('AppView', function (require, exports, module) {
             lineHeight: "100px"
             }
           });
-        navView._add(contentSurface);
+        navView._add(contentSurface); 
 
         // calculate position of cell, based on x/y/offset/gutter
         var xOffset = this.options.cellOffset[0] + (this.options.cellCalculatedSize[0] + this.options.cellGutter[0]) * xCount;
@@ -189,7 +195,7 @@ define('AppView', function (require, exports, module) {
           transform: Transform.translate(xOffset, yOffset, 1)
           });
         
-        // store default position in object (will be used later for animatino)
+        // store default position in object (will be used later for animations)
         navModifier.cellDefaultPosition = [xOffset,yOffset];
         
         // IMPORTANT! Pipe surface events to Scrollview,
@@ -198,10 +204,42 @@ define('AppView', function (require, exports, module) {
 
         // add each item to the view and store navModifier in array
         this.navModifiers.push(navModifier);
+        this.navCells.push(contentSurface);
         this.backgroundView.add(navModifier).add(navView); 
         }
     
     }
+  
+    // Resize grid if application is resized (browser width changed)
+    AppView.prototype.resizeView = function() {
+      // calculate new
+      this.calculateGrid();
+      // set sizes, positions of all cells new 
+      var xCount = 0;
+      var yCount = 0;
+      for(var i = 0; i < this.options.cellCount; i++) {
+        // calculates x position and y postion during the loop
+        xCount = i % this.numberOfcellsX;
+        yCount = Math.floor(i*1.0 / this.numberOfcellsX);
+        // calculate position of cell, based on x/y/offset/gutter
+        var xOffset = this.options.cellOffset[0] + (this.options.cellCalculatedSize[0] + this.options.cellGutter[0]) * xCount;
+        var yOffset = this.options.cellOffset[1] + (this.options.cellCalculatedSize[1] + this.options.cellGutter[1]) * yCount;
+        // Transform.translate(..., ..., 1) transforms
+        // z-axis by 1 and ensures that the cells
+        // always stay on top of the background
+        this.navModifiers[i].setTransform(Transform.translate(xOffset, yOffset, 1));
+        // store default position in object (will be used later for animations)
+        this.navModifiers[i].cellDefaultPosition = [xOffset,yOffset];
+        // set new cell sizes
+        this.navCells[i].size=this.options.cellCalculatedSize;
+        // set new background size
+        this.backSurface.size[1]=this.options.scrollAreaSize[1];
+        this.backgroundView.options.size[1]=this.options.scrollAreaSize[1];
+
+      }
+
+      this.animateNavItems();
+    };
   
 
     // Creates scrollView and background
